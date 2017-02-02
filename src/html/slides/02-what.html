@@ -1,0 +1,161 @@
+<section>
+  <h2>What is Terraform?</h2>
+</section>
+
+<section>
+  <p>Terraform provisions and manages cloud resources across providers</p>
+</section>
+
+<section>
+  <p>Think Ansible, but for cloud resources rather than just servers</p>
+</section>
+
+<section>
+  <h3>Terraform can...</h3>
+
+  <small class="fragment">Provision AWS EC2 instances</small>
+  <small class="fragment">&middot; Configure AWS Auto Scaling Groups</small>
+  <small class="fragment">Create and manage AWS AMIs</small>
+  <small class="fragment">&middot; Provision VMware vSphere VMs</small>
+  <small class="fragment">Configure Datadog monitors</small>
+  <small class="fragment">&middot; Manage GitHub repos and teams</small>
+  <small class="fragment">&middot; Create ZIP archives</small>
+  <small class="fragment">Brew your coffee</small>
+  <p class="fragment">And a whooole lot more...</p>
+</section>
+
+<section>
+  <p>Terraform currently supports ~300 different resources for AWS alone</p>
+</section>
+
+<section>
+  <img src="/img/shut-up.svg" width="300">
+  <h3>Shut up and show us the code!</h3>
+</section>
+
+<section>
+  <h3>Quick overview</h3>
+</section>
+
+<section>
+  <p>Configurations are written in <a href="https://github.com/hashicorp/hcl" target="_blank" rel="noreferrer noopener">HCL</a>, a human friendly configuration language that transpiles to JSON</p>
+</section>
+
+<section>
+  <p>Configuration files require use of the <code>.tf</code> extension</p>
+</section>
+
+<section>
+  <p>A collection of <code>.tf</code> files in a folder form a module</p>
+</section>
+
+<section>
+  <h4>Example:</h4>
+  <h3>Creating an EC2 instance running Ubuntu 14.04</h3>
+</section>
+
+<section>
+  <p>Let's start by configuring a provider:</p>
+
+  <pre><code class="lang-nix" data-trim>
+    provider "aws" {
+      region = "us-east-1"
+    }
+  </code></pre>
+
+  <p><small class="fragment">Terraform will automatically read our AWS credentials from the environment so there's no need to specify anything else</small></p>
+</section>
+
+<section>
+  <p>Let's grab the latest Ubuntu 14.04 AMI from Canonical:</p>
+
+  <pre><code class="lang-nix" data-trim>
+    data "aws_ami" "ubuntu" {
+      most_recent = true
+
+      owners = [
+        "099720109477", # Canonical; look ma, comments!
+      ]
+
+      filter {
+        name = "name"
+
+        values = [
+          "ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-*",
+        ]
+      }
+    }
+  </code></pre>
+</section>
+
+<section>
+  <p>Now, spin up a <code>t2.micro</code> instance:</p>
+
+  <pre><code class="lang-nix" data-trim>
+    resource "aws_instance" "hello_world" {
+      ami           = "${data.aws_ami.ubuntu.id}"
+      instance_type = "t2.micro"
+
+      tags {
+        Name = "HelloWorld"
+      }
+    }
+  </code></pre>
+</section>
+
+<section>
+  <p>Finally, let's go ahead and bootstrap the instance:</p>
+
+  <pre><code class="lang-nix" data-trim>
+    resource "aws_instance" "hello-world" {
+      ...
+
+      provisioner "file" {
+        source      = "bootstrap.sh"
+        destination = "/tmp/bootstrap.sh"
+      }
+
+      provisioner "remote-exec" {
+        inline = [
+          "chmod +x /tmp/bootstrap.sh",
+          "/tmp/bootstrap.sh --id ${aws_instance.hello_world.id}",
+        ]
+      }
+    }
+  </code></pre>
+</section>
+
+<section>
+  <p>With the configuration in place, we can spin up the infrastructure</p>
+</section>
+
+<section>
+  <p>The first step is to create an execution plan by running <code>terraform plan</code>:</p>
+
+  <pre><code class="lang-go" data-trim data-noescape>
+    + aws_instance.hello_world
+        ami:                         "ami-49c9295f"
+        instance_type:               "t2.micro"
+        source_dest_check:           "true"
+        tags.%:                      "1"
+        tags.Name:                   "HelloWorld"
+        associate_public_ip_address: "&lt;computed>"
+        ...
+
+    <strong>Plan</strong>: 1 to add, 0 to change, 0 to destroy.
+  </code></pre>
+</section>
+
+<section>
+  <p>The plan will tell <em>exactly</em> what Terraform intends to do</p>
+  <p class="fragment">When happy with the execution plan, apply it using <code>terraform apply</code></p>
+</section>
+
+<section>
+  <p>Once applied, Terraform will keep track of the current infrastructure state in a <code>.tfstate</code> file</p>
+  <p class="fragment">This file can be checked into version control to allow collaborating on the state</p>
+</section>
+
+<section>
+  <p>When you want to change your infrastructure, just rinse and repeat the plan and apply steps</p>
+</section>
